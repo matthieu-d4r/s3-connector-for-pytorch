@@ -10,8 +10,10 @@
 * No breaking changes.
 
 ## v1.2.5 (September 11, 2024)
+
+### Bug fixes / Improvements
 * Enhanced error logging.
-* Support tell for S3writer.
+* Support tell for `S3Writer`.
 * Path-style addressing support.
 * Update crates and Mountpoint dependencies.
 
@@ -64,7 +66,6 @@ are configured through the following environment variables: `S3_TORCH_CONNECTOR_
 ### Breaking changes
 * No breaking changes.
 
-
 ## v1.1.4 (February 26, 2024)
 
 ### New features
@@ -81,7 +82,6 @@ are configured through the following environment variables: `S3_TORCH_CONNECTOR_
 ### Breaking changes
 * No breaking changes.
 
-
 ## v1.1.3 (January 25, 2024)
 
 ### New features
@@ -89,7 +89,6 @@ are configured through the following environment variables: `S3_TORCH_CONNECTOR_
 
 ### Breaking changes
 * No breaking changes.
-
 
 ## v1.1.2 (January 19, 2024)
 
@@ -99,7 +98,6 @@ are configured through the following environment variables: `S3_TORCH_CONNECTOR_
 
 ### Breaking changes
 * No breaking changes.
-
 
 ## v1.1.1 (December 11, 2023)
 
@@ -112,7 +110,6 @@ Issue [#89](https://github.com/awslabs/s3-connector-for-pytorch/issues/89).
 ### Breaking changes
 * No breaking changes.
 
-
 ## v1.1.0 (November 29, 2023)
 
 ### New features
@@ -120,7 +117,6 @@ Issue [#89](https://github.com/awslabs/s3-connector-for-pytorch/issues/89).
 
 ### Breaking changes
 * No breaking changes.
-
 
 ## v1.0.0 (November 22, 2023)
 * The Amazon S3 Connector for PyTorch delivers high throughput for PyTorch training jobs that access and store data in Amazon S3.

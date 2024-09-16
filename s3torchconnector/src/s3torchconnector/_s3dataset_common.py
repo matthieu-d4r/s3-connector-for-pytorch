@@ -3,14 +3,14 @@
 
 from typing import Iterable, Union, Tuple
 
-from ._s3_bucket_iterable import S3BucketIterable
+from ._s3bucket_iterable import S3BucketIterable
 from ._s3client import S3Client
 from . import S3Reader
 from ._s3bucket_key_data import S3BucketKeyData
 
 """
 _s3dataset_common.py
-    Collection of common methods for S3 datasets, containing logic for URIs parsing and objects listing. 
+    Collection of common methods for S3 datasets, containing logic for URIs parsing and objects listing.
 """
 
 
