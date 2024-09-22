@@ -9,7 +9,6 @@ defaults:
 
 hydra:
   mode: MULTIRUN
-
   sweeper:
     params:
       dataloader: s3iterabledataset, fsspec
