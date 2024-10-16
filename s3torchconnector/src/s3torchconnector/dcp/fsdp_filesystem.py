@@ -1,31 +1,40 @@
+#  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#  // SPDX-License-Identifier: BSD
+
 import io
 import logging
 import os
 from contextlib import contextmanager
-from typing import Generator, Union
-from torch.distributed.checkpoint.filesystem import FileSystem
-from torch.distributed.checkpoint.filesystem import FileSystemWriter
-from torch.distributed.checkpoint.filesystem import FileSystemReader
-from torch.distributed.checkpoint.filesystem import FileSystemBase
+from typing import Generator, Union, override, Optional, Literal
+
+from torch.distributed.checkpoint.filesystem import (
+    FileSystem,
+    FileSystemBase,
+    FileSystemReader,
+    FileSystemWriter,
+)
 
 from s3torchconnector import S3Checkpoint
 from s3torchconnector._s3client import S3Client
 from s3torchconnector._s3dataset_common import parse_s3_uri  # type: ignore
+from s3torchconnectorclient._mountpoint_s3_client import S3Exception
 
 logger = logging.getLogger(__name__)
+Mode = Literal["wb", "rb"]
 
 
-class S3FS(FileSystemBase):
-    def __init__(self, region: str) -> None:
+class S3FileSystem(FileSystemBase):
+    def __init__(self, region: str, s3_client: Optional[S3Client] = None) -> None:
         self.path = None
         self.region = region
-        self.client = S3Client(region)
+        self.client = s3_client if s3_client is not None else S3Client(region)
         self.checkpoint = S3Checkpoint(region)
 
+    @override
     @contextmanager
     def create_stream(
-        self, path: Union[str, os.PathLike], mode: str
-    ) -> Generator[io.IOBase, None, None]:
+        self, path: Union[str, os.PathLike], mode: Mode
+    ) -> Generator[io.BufferedIOBase, None, None]:
         """
         Create a stream for reading or writing to S3.
 
@@ -34,7 +43,7 @@ class S3FS(FileSystemBase):
             mode (str): The mode for the stream. Supports 'rb' for read mode and 'wb' for write mode.
 
         Yields:
-            io.IOBase: A stream for reading or writing to S3.
+            io.BufferedIOBase: A stream for reading or writing to S3.
 
         Raises:
             ValueError: If the mode is not 'rb' or 'wb'.
@@ -52,9 +61,8 @@ class S3FS(FileSystemBase):
                 "Invalid mode argument, create_stream only supports rb (read mode) & wb (write mode)"
             )
 
-    def concat_path(
-        self, path: Union[str, os.PathLike], suffix: str
-    ) -> Union[str, os.PathLike]:
+    @override
+    def concat_path(self, path: Union[str, os.PathLike], suffix: str) -> str:
         """
         Concatenate a suffix to the given path.
 
@@ -63,13 +71,14 @@ class S3FS(FileSystemBase):
             suffix (str): The suffix to concatenate.
 
         Returns:
-            Union[str, os.PathLike]: The concatenated path.
+            str: The concatenated path.
         """
-        logger.debug("concat_path for %s and %s", path, suffix)
+        logger.debug("concat paths %s and %s", path, suffix)
         path_str = os.fspath(path)
         result = os.path.join(path_str, suffix)
         return result
 
+    @override
     def init_path(self, path: Union[str, os.PathLike]) -> Union[str, os.PathLike]:
         """
         Initialize the path for the filesystem.
@@ -84,6 +93,7 @@ class S3FS(FileSystemBase):
         self.path = path
         return self.path
 
+    @override
     def rename(
         self, old_path: Union[str, os.PathLike], new_path: Union[str, os.PathLike]
     ) -> None:
@@ -95,7 +105,7 @@ class S3FS(FileSystemBase):
             new_path (Union[str, os.PathLike]): The new path for the object.
 
         Raises:
-            ClientError: If there is an error with the S3 client.
+            S3Exception: If there is an error with the S3 client.
         """
         logger.debug("rename %s to %s", old_path, new_path)
         bucket_name, old_key = parse_s3_uri(old_path)
@@ -104,20 +114,37 @@ class S3FS(FileSystemBase):
         try:
             self.client.copy_object(bucket_name, old_key, bucket_name, new_key)
             self.client.delete_object(bucket_name, old_key)
-        except :
+        except S3Exception:
             logger.exception("Error renaming object in S3")
 
+    @override
     def mkdir(self, path: Union[str, os.PathLike]) -> None:
         """
         No-op method for creating directories in S3 (not needed).
         """
         pass
 
+    @override
     def exists(self, path: Union[str, os.PathLike]) -> bool:
-        pass
+        logger.debug("exists %s", path)
 
+        bucket, key = parse_s3_uri(path)
+        try:
+            self.client.head_object(bucket, key)
+        except S3Exception:
+            return False
+        else:
+            return True
+
+    @override
     def rm_file(self, path: Union[str, os.PathLike]) -> None:
-        pass
+        logger.debug("remove %s", path)
+
+        bucket, key = parse_s3_uri(path)
+        try:
+            self.client.delete_object(bucket, key)
+        except S3Exception:
+            logger.exception("Failed to remove object from S3")
 
     @classmethod
     def validate_checkpoint_id(cls, checkpoint_id: Union[str, os.PathLike]) -> bool:
@@ -142,6 +169,7 @@ class S3DPWriter(FileSystemWriter):
         single_file_per_rank: bool = True,
         thread_count: int = 1,
         per_thread_copy_ahead: int = 10_000_000,
+        overwrite: bool = False,
     ) -> None:
         """
         Initialize an S3 writer for distributed checkpointing.
@@ -152,16 +180,22 @@ class S3DPWriter(FileSystemWriter):
             single_file_per_rank (bool, optional): Whether to write a single file per rank. Defaults to True.
             thread_count (int, optional): The number of threads to use for writing. Defaults to 1.
             per_thread_copy_ahead (int, optional): The number of bytes to copy ahead per thread. Defaults to 10_000_000.
+            overwrite (bool, optional): Whether to overwrite existing checkpoints. Defaults to False.
         """
         super().__init__(
-            path, single_file_per_rank, False, thread_count, per_thread_copy_ahead
+            path=path,
+            single_file_per_rank=single_file_per_rank,
+            sync_files=False,
+            thread_count=thread_count,
+            per_thread_copy_ahead=per_thread_copy_ahead,
+            overwrite=overwrite,
         )
-        self.fs = S3FS(region)
+        self.fs = S3FileSystem(region)
         self.path = self.fs.init_path(path)
 
     @classmethod
     def validate_checkpoint_id(cls, checkpoint_id: Union[str, os.PathLike]) -> bool:
-        return S3FS.validate_checkpoint_id(checkpoint_id)
+        return S3FileSystem.validate_checkpoint_id(checkpoint_id)
 
 
 class S3DPReader(FileSystemReader):
@@ -174,10 +208,10 @@ class S3DPReader(FileSystemReader):
             path (Union[str, os.PathLike]): The S3 path to read checkpoints from.
         """
         super().__init__(path)
-        self.fs = S3FS(region)
+        self.fs = S3FileSystem(region)
         self.path = self.fs.init_path(path)
         self.sync_files = False
 
     @classmethod
     def validate_checkpoint_id(cls, checkpoint_id: Union[str, os.PathLike]) -> bool:
-        return S3FS.validate_checkpoint_id(checkpoint_id)
+        return S3FileSystem.validate_checkpoint_id(checkpoint_id)

@@ -9,6 +9,7 @@ from s3torchconnector import S3StorageWriter, S3StorageReader, S3DPWriter, S3DPR
 
 CHECKPOINT_DIR = "checkpoint"
 
+
 class ToyModel(nn.Module):
     def __init__(self):
         super(ToyModel, self).__init__()
@@ -85,6 +86,7 @@ def run_fsdp_checkpoint_save_example(rank, backend):
 
     print("Checkpoint saved for epoch 2.")
 
+
 def run_fsdp_checkpoint_load_example(rank, backend):
     print(f"Running basic FSDP checkpoint loading example on rank {rank}.")
 
@@ -106,7 +108,9 @@ def run_fsdp_checkpoint_load_example(rank, backend):
     )
 
     # Prepare state_dict to load into
-    loaded_state_dict = {"model": model.state_dict(),}
+    loaded_state_dict = {
+        "model": model.state_dict(),
+    }
 
     thread_count = 1
     bucket = "dcp-poc-test-3"
@@ -134,6 +138,7 @@ def get_writer(region, path, thread_count, writer_to_use):
         writer = S3StorageWriter(region=region, s3_uri=path, thread_count=thread_count)
     return writer
 
+
 def get_reader(region, path, thread_count, reader_to_use):
     if reader_to_use == "local":
         reader = DCP.FileSystemReader(CHECKPOINT_DIR)
@@ -142,6 +147,7 @@ def get_reader(region, path, thread_count, reader_to_use):
     else:
         reader = S3StorageReader(region=region, s3_uri=path, thread_count=thread_count)
     return reader
+
 
 if __name__ == "__main__":
     """
@@ -183,7 +189,13 @@ if __name__ == "__main__":
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("--backend", type=str, default="nccl", choices=["nccl", "gloo"])
-    parser.add_argument("--action", type=str, default="save", choices=["save", "load"], help="Action to perform: 'save' or 'load'.")
+    parser.add_argument(
+        "--action",
+        type=str,
+        default="save",
+        choices=["save", "load"],
+        help="Action to perform: 'save' or 'load'.",
+    )
     args = parser.parse_args()
 
     setup(args.backend)

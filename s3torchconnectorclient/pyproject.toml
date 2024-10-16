@@ -32,6 +32,7 @@ test = [
     "flake8",
     "black",
     "mypy",
+    "numpy",
     "Pillow"
 ]
 
