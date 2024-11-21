@@ -14,6 +14,7 @@ import hydra
 import torch
 import torch.distributed as dist
 import torch.distributed.checkpoint as dcp
+from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig
 from torch import multiprocessing as mp
 from torch.distributed.checkpoint import FileSystemWriter
@@ -48,7 +49,13 @@ def run_benchmark(cfg: DictConfig):
             begin_mp = perf_counter()
             mp.spawn(
                 run,
-                (cfg, benchmark_model.model, storage_writer, corrected_save_timestamps),
+                (
+                    int(HydraConfig.get().job.id),
+                    cfg,
+                    benchmark_model.model,
+                    storage_writer,
+                    corrected_save_timestamps,
+                ),
                 nprocs=cfg.world_size,
                 join=True,
             )
@@ -86,15 +93,16 @@ def build_checkpoint_uri(s3_uri: str, suffix: str) -> str:
     return s3_uri + suffix if s3_uri.endswith("/") else s3_uri + "/" + suffix
 
 
-def setup(backend: str, world_size: int, rank: int) -> None:
+def setup(port_offset: int, backend: str, world_size: int, rank: int) -> None:
     os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = "12355"
+    os.environ["MASTER_PORT"] = str(12355 + port_offset)
     dist.init_process_group(backend, world_size=world_size, rank=rank)
 
 
 # FIXME: configure logging in subprocess accordingly
 def run(
     rank: int,  # needs to be passed first (provided by `multiprocessing.spawn` automatically)
+    port_offset: int,
     cfg: DictConfig,
     model: Module,
     storage_writer: FileSystemWriter,
@@ -105,7 +113,7 @@ def run(
     This function is meant to be executed in subprocesses."""
     begin_process = perf_counter()
 
-    setup(cfg.backend, world_size=cfg.world_size, rank=rank)
+    setup(port_offset, cfg.backend, world_size=cfg.world_size, rank=rank)
     if cfg.backend == "nccl":
         device_id = rank % torch.cuda.device_count()
         torch.cuda.set_device(device_id)
