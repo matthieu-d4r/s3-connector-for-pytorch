@@ -25,9 +25,9 @@ dependencies = [
     "boto3",
     "prefixed",
     "click",
-    "omegaconf",
     "accelerate",
     "pandas",
+    "requests",
 ]
 
 [project.optional-dependencies]

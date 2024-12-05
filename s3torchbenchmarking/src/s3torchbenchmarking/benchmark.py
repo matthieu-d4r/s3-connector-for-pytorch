@@ -1,7 +1,6 @@
 #  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #  // SPDX-License-Identifier: BSD
 import atexit
-import json
 import shutil
 import subprocess
 import tempfile
@@ -11,14 +10,13 @@ from typing import Optional, List
 
 import hydra
 import torchdata  # type: ignore
-from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader, Dataset, default_collate
 from torchdata.datapipes.utils import StreamWrapper  # type: ignore
 
+from s3torchbenchmarking.job_results import save_job_results
 from s3torchconnector import S3MapDataset, S3Reader, S3IterableDataset
 from s3torchconnector._s3dataset_common import parse_s3_uri  # type: ignore
-from .benchmark_utils import ExperimentResult, ExperimentResultJsonEncoder
 from .models import (
     Entitlement,
     ViT,
@@ -44,18 +42,7 @@ def run_experiment(config: DictConfig):
     )
 
     result = model.train(dataloader, config.training.max_epochs)
-    root_config = HydraConfig.get()
-    output_dir = root_config.runtime.output_dir
-    job_result_path = write_result(result, Path(output_dir))
-    print(f"{root_config.job.name} results written to: {job_result_path}")
-
-
-def write_result(result: ExperimentResult, out_dir: Path) -> Path:
-    result_path = out_dir / "result.json"
-    with open(result_path, "w") as outfile:
-        json.dump(result, outfile, cls=ExperimentResultJsonEncoder)
-
-    return result_path
+    save_job_results(config, model, result)
 
 
 def make_model(config: DictConfig) -> ModelInterface:
@@ -211,7 +198,3 @@ def make_dataloader(dataset: Dataset, num_workers: int, batch_size: int):
 # Since both S3Reader and StreamWrapper are File-Like Objects this transformation is straightforward
 def tar_to_tuple(s3object: S3Reader):
     return s3object.key, StreamWrapper(s3object)
-
-
-if __name__ == "__main__":
-    run_experiment()

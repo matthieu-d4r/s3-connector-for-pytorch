@@ -1,15 +1,23 @@
 #!/usr/bin/env bash
+#
+# Run PyTorch Lightning Checkpointing benchmarks.
 
-RESULTS_BUCKET_NAME=$1
-RESULTS_PREFIX=$2
+set -euo pipefail
 
-nvme_dir="./nvme/lightning/"
+if [[ $# -lt 2 ]]; then
+    echo 'Minimum number of arguments (2) not provided'
+    exit 1
+fi
 
-# Prepare NVMe drive mount
+region=$1
+table=$2
+nvme_dir="./nvme/" # local path for saving checkpoints
+
+# Prepare NVMe drive mount (if required)
 ./utils/prepare_nvme.sh $nvme_dir
 
 # Run benchmarks
-s3torch-benchmark-lightning -cd conf -cn lightning_checkpointing path=$nvme_dir
+python ./src/s3torchbenchmarking/lightning_checkpointing/benchmark.py -cd conf -cn lightning_checkpointing path=$nvme_dir
 
-# Upload results to an S3 bucket
-python ./utils/upload_colated_results_to_s3.py "./multirun" "${RESULTS_BUCKET_NAME}" "${RESULTS_PREFIX}" "checkpoint"
+# Write (collated) benchmark results to a DynamoDB table
+python ./utils/collect_and_write_to_dynamodb.py ./multirun/ "$region" "$table"
