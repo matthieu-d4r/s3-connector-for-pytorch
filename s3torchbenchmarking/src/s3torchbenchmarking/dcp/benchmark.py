@@ -3,6 +3,8 @@
 
 import logging
 import os
+from dataclasses import dataclass
+from enum import Enum
 from multiprocessing.queues import Queue
 from pathlib import Path
 from time import perf_counter
@@ -13,6 +15,7 @@ import pandas as pd
 import torch
 import torch.distributed as dist
 import torch.distributed.checkpoint as dcp
+from hydra.core.config_store import ConfigStore
 from omegaconf import DictConfig
 from torch import multiprocessing as mp
 from torch.distributed.checkpoint import FileSystemWriter
@@ -30,9 +33,43 @@ Timestamps = Tuple[float, float]
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class S3Config:
+    region: str
+    uri: str
+
+
+@dataclass
+class CheckpointConfig:
+    storage: str
+
+
+class Backend(Enum):
+    NCCL = "nccl"
+    GLOO = "gloo"
+
+
+@dataclass
+class DCPConfig:
+    s3: S3Config
+
+    path: Path
+    epochs: int
+
+    model: str
+    backend: Backend
+    world_size: int
+    thread_count: int
+    checkpoint: CheckpointConfig
+
+
+cs = ConfigStore.instance()
+cs.store(name="config", node=DCPConfig)
+
+
 # TODO: add Structured Config (https://hydra.cc/docs/tutorials/structured_config/intro/)
 @hydra.main(version_base=None)
-def run_benchmark(cfg: DictConfig) -> dict:
+def run_benchmark(cfg: DCPConfig) -> dict:
     """DCP benchmarks entry point."""
     benchmark_model = get_benchmark_model(cfg.model)
 
@@ -75,7 +112,7 @@ def run_benchmark(cfg: DictConfig) -> dict:
     return {"metrics": metrics}
 
 
-def get_writer(cfg: DictConfig) -> FileSystemWriter:
+def get_writer(cfg: DCPConfig) -> FileSystemWriter:
     """Instantiate a checkpoint writer based on the input config."""
     suffix = build_random_suffix()
 
