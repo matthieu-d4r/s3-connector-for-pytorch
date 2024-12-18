@@ -8,20 +8,10 @@ feature against the `s3torchconnector` library.
 These benchmarks are designed to:
 
 1. Test the "save" mechanism of PyTorch DCP (`torch.distributed.checkpoint.save`);
-2. Compare the performance of the s3torchconnector library against other libraries and local storage;
+2. Compare the performance of the `s3torchconnector` library against other libraries and local storage;
 3. Measure throughput (in MiB/s) and save times (in seconds).
 
 ### Usage
-
-> [!IMPORTANT]
-> The benchmarks are designed to be run on a EC2 instance.
-
-Install the `s3torchbenchmarking` package with `pip` (see the [root README](../../../README.md) for instructions),
-along with the `s3torchconnector[dcp]` extra; once installed, the DCP benchmarks can be run with:
-
-```shell
-$ s3torch-benchmark-dcp -cd conf -cn dcp
-```
 
 The command must be executed from the package's root, where it can read from the `config/` directory; it will create a
 `./multirun/` directory (at the location of execution), and store all benchmark results there.
@@ -29,35 +19,6 @@ The command must be executed from the package's root, where it can read from the
 > [!WARNING]
 > When saving on local disk, consider clearing the `path` specified in your config between runs to prevent disk space
 > issues.
-
-#### Potential caveats
-
-If you encounter the following errors during installation, try the associated command:
-
-**Error**:
-
-```
-RuntimeError: Failed to import transformers.models.vit.modeling_vit because of the following error (look up to see its traceback):
-operator torchvision::nms does not exist
-```
-
-**Try**:
-
-```shell
-$ conda install -y pytorch torchvision torchaudio pytorch-cuda=12.4 -c pytorch -c nvidia
-```
-
-**Error**:
-
-```
-TypeError: canonicalize_version() got an unexpected keyword argument 'strip_trailing_zero'
-```
-
-**Try**:
-
-```shell
-$ pip install "setuptools<71"
-```
 
 ### Configuration
 
