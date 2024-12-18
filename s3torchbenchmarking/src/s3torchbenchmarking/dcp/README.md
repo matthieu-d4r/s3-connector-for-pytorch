@@ -8,7 +8,7 @@ feature against the `s3torchconnector` library.
 These benchmarks are designed to:
 
 1. Test the "save" mechanism of PyTorch DCP (`torch.distributed.checkpoint.save`);
-2. Compare the performance of the s3torchconnector library against other libraries and local storage;
+2. Compare the performance of the `s3torchconnector` library against other libraries and local storage;
 3. Measure throughput (in MiB/s) and save times (in seconds).
 
 ### Usage

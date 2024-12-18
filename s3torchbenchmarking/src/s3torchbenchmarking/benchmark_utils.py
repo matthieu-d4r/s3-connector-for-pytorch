@@ -6,9 +6,8 @@ import threading
 import time
 from collections import defaultdict
 from collections import deque
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, TypedDict
 
 import numpy as np
 import psutil
@@ -52,12 +51,12 @@ class Distribution:
         }
 
 
-@dataclass
-class ExperimentResult:
-    elapsed_time: float
+class ExperimentResult(TypedDict, total=False):
+    training_duration_s: float
+    epoch_durations_s: List[float]
     volume: int
-    checkpoint_times: Optional[List[float]] = None
-    utilization: Optional[Dict[str, Distribution]] = None
+    checkpoint_times: Optional[List[float]]
+    utilization: Dict[str, Distribution]
 
 
 class ResourceMonitor:
